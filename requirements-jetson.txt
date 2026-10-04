@@ -1,0 +1,12 @@
+# ===== Jetson Orin Nano Dependencies =====
+# NOTE: torch, torchvision, CUDA, cuDNN, and TensorRT are pre-installed
+# via the JetPack SDK. Do NOT pip install them — use the system packages.
+
+# These are the additional pip packages needed on the Jetson:
+numpy>=1.24.0
+opencv-python>=4.8.0
+Pillow>=10.0.0
+pygame>=2.5.0
+PyYAML>=6.0
+tqdm>=4.66.0
+pycuda>=2022.2

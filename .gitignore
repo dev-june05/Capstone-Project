@@ -1,0 +1,50 @@
+# ===== Data (too large for Git) =====
+data/cityscapes/
+data/idd/
+data/campus/raw/
+data/campus/annotated/
+
+# ===== Model Artifacts =====
+checkpoints/
+*.pt
+*.pth
+*.onnx
+*.engine
+*.trt
+
+# ===== Experiment Tracking =====
+wandb/
+mlruns/
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# ===== Virtual Environments =====
+venv/
+env/
+.venv/
+
+# ===== Jupyter =====
+.ipynb_checkpoints/
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Misc =====
+*.log
+*.tmp
