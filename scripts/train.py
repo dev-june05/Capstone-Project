@@ -114,8 +114,16 @@ def build_datasets(config: Dict[str, Any]) -> Tuple[Any, Any]:
         elif d_cfg["name"] == "campus":
             val_datasets.append(CampusDataset(d_cfg["root"], d_cfg["split"], transform=val_aug))
 
+    train_datasets = [ds for ds in train_datasets if len(ds) > 0]
+    val_datasets = [ds for ds in val_datasets if len(ds) > 0]
+    if len(train_datasets) == 0:
+        raise RuntimeError("No training images found! Please verify that your dataset is extracted to the paths specified in your config (e.g., data/cityscapes).")
+    if len(val_datasets) == 0:
+        raise RuntimeError("No validation images found! Please verify that your dataset is extracted to the paths specified in your config.")
+
     train_ds = CombinedDataset(train_datasets) if len(train_datasets) > 1 else train_datasets[0]
     val_ds = CombinedDataset(val_datasets) if len(val_datasets) > 1 else val_datasets[0]
+    logger.info(f"Loaded {len(train_ds)} training samples and {len(val_ds)} validation samples across {len(train_datasets)} active dataset(s).")
     return train_ds, val_ds
 
 def build_dataloaders(config: Dict[str, Any]) -> Tuple[DataLoader, DataLoader, Optional[torch.Tensor]]:

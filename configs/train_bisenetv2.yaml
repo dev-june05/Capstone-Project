@@ -19,10 +19,10 @@ dataset:
     - name: cityscapes
       root: data/cityscapes
       split: val
-  num_workers: 4
+  num_workers: 2
 
 training:
-  batch_size: 8
+  batch_size: 2  # Set to 2 for 4GB VRAM (RTX 3050 Laptop). Increase to 4 if VRAM allows.
   epochs: 150
   optimizer: adamw
   learning_rate: 0.001
