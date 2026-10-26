@@ -47,6 +47,7 @@ augmentation:
   random_shadow: 0.3
 
 logging:
+  wandb_project: capstone-walkability
   save_dir: C:/Dataset/checkpoints       # Save checkpoints on SSD too
   save_every: 1                           # Save after EVERY epoch
   log_images_every: 5
