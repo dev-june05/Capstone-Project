@@ -82,8 +82,7 @@ def get_train_augmentations(
             ),
             A.RandomShadow(
                 shadow_roi=(0, 0.5, 1, 1),
-                num_shadows_lower=1,
-                num_shadows_upper=3,
+                num_shadows_limit=(1, 3),
                 shadow_dimension=5,
                 p=0.3,
             ),

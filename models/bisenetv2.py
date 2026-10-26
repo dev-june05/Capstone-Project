@@ -80,7 +80,10 @@ class ContextEmbeddingBlock(nn.Module):
     def __init__(self, in_channels=128, out_channels=128):
         super().__init__()
         self.gap = nn.AdaptiveAvgPool2d(1)
-        self.conv_gap = ConvBNReLU(in_channels, in_channels, kernel_size=1, stride=1, padding=0)
+        self.conv_gap = nn.Sequential(
+            nn.Conv2d(in_channels, in_channels, kernel_size=1, bias=True),
+            nn.ReLU(inplace=True)
+        )
         self.conv_last = ConvBNReLU(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
 
     def forward(self, x):
@@ -135,7 +138,6 @@ class AggregationLayer(nn.Module):
         self.semantic_up = nn.Sequential(
             ConvBNReLU(semantic_channels, semantic_channels, kernel_size=3, stride=1, padding=1, groups=semantic_channels, use_act=False),
             ConvBNReLU(semantic_channels, semantic_channels, kernel_size=1, stride=1, padding=0, use_act=False),
-            nn.Upsample(scale_factor=4, mode='bilinear', align_corners=False),
             nn.Sigmoid()
         )
 
