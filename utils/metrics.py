@@ -62,18 +62,27 @@ class SegmentationMetrics:
         self.boundary_fp = 0.0
         self.boundary_fn = 0.0
 
-    def _to_numpy_2d(self, tensor_or_array: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
-        """Convert input tensor or ndarray to a 2D/3D integer numpy array."""
+    def _to_numpy_labels(self, tensor_or_array: Union[torch.Tensor, np.ndarray], is_prediction: bool = False) -> np.ndarray:
+        """Convert input tensor or ndarray to an integer label numpy array of shape (B, H, W)."""
         if isinstance(tensor_or_array, torch.Tensor):
-            arr = tensor_or_array.detach().cpu().numpy()
+            # If 4D tensor (B, C, H, W), it is a batch of logits/probabilities
+            if tensor_or_array.ndim == 4:
+                arr = torch.argmax(tensor_or_array, dim=1).detach().cpu().numpy()
+            # If 3D floating-point prediction tensor (C, H, W), it is a single unbatched prediction
+            elif tensor_or_array.ndim == 3 and is_prediction and torch.is_floating_point(tensor_or_array) and tensor_or_array.shape[0] == self.num_classes:
+                arr = torch.argmax(tensor_or_array, dim=0).detach().cpu().numpy()
+            else:
+                arr = tensor_or_array.detach().cpu().numpy()
         else:
             arr = np.asarray(tensor_or_array)
+            if arr.ndim == 4:
+                arr = np.argmax(arr, axis=1)
+            elif arr.ndim == 3 and is_prediction and np.issubdtype(arr.dtype, np.floating) and arr.shape[0] == self.num_classes:
+                arr = np.argmax(arr, axis=0)
 
-        # If probability/logits of shape (B, C, H, W) or (C, H, W)
-        if arr.ndim == 4:
-            arr = np.argmax(arr, axis=1)
-        elif arr.ndim == 3 and arr.shape[0] == self.num_classes and arr.shape[0] != arr.shape[1]:
-            arr = np.argmax(arr, axis=0)
+        # Ensure batch dimension for 2D inputs: (H, W) -> (1, H, W)
+        if arr.ndim == 2:
+            arr = arr[np.newaxis, ...]
 
         return arr.astype(np.int64)
 
@@ -93,18 +102,13 @@ class SegmentationMetrics:
             walking_zone_ratio (float): Fraction of image height from bottom representing
                 the immediate walking zone (default: 0.4).
         """
-        pred_np = self._to_numpy_2d(pred)
-        target_np = self._to_numpy_2d(target)
+        pred_np = self._to_numpy_labels(pred, is_prediction=True)
+        target_np = self._to_numpy_labels(target, is_prediction=False)
 
         if pred_np.shape != target_np.shape:
             raise ValueError(
                 f"Shape mismatch: pred shape {pred_np.shape} vs target shape {target_np.shape}"
             )
-
-        # Handle batch or single image
-        if pred_np.ndim == 2:
-            pred_np = pred_np[np.newaxis, ...]
-            target_np = target_np[np.newaxis, ...]
 
         batch_size, h, w = pred_np.shape
         wz_start_y = int(h * (1.0 - walking_zone_ratio))

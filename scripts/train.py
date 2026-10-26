@@ -217,7 +217,7 @@ def validate(model, dataloader, criterion, epoch, device, config):
         loss = criterion(outputs, masks)
         running_loss += loss.item()
         
-        metrics_accumulator.update(outputs, masks)
+        metrics_accumulator.update(torch.argmax(outputs, dim=1), masks)
         
     summary = metrics_accumulator.summary()
     
