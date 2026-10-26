@@ -31,6 +31,10 @@ training:
   loss: ohem_ce_dice
   ohem_threshold: 0.7
   dice_weight: 0.5
+  early_stopping:
+    enabled: true
+    patience: 15         # Stop if validation mIoU does not improve for 15 consecutive epochs
+    min_delta: 0.001     # Minimum improvement required to qualify as best model
 
 augmentation:
   random_crop: [512, 1024]

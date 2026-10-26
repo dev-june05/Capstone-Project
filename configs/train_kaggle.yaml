@@ -31,6 +31,10 @@ training:
   loss: ohem_ce_dice
   ohem_threshold: 0.7
   dice_weight: 0.5
+  early_stopping:
+    enabled: true
+    patience: 15
+    min_delta: 0.001
 
 augmentation:
   random_crop: [512, 1024]

@@ -273,6 +273,13 @@ def main():
     epochs = int(config["training"]["epochs"])
     optimizer, scheduler = build_optimizer_and_scheduler(model, config, epochs * len(train_loader))
     
+    # Early Stopping configuration
+    early_stop_cfg = config.get("training", {}).get("early_stopping", {})
+    early_stop_enabled = early_stop_cfg.get("enabled", True)
+    patience = int(early_stop_cfg.get("patience", 15))
+    min_delta = float(early_stop_cfg.get("min_delta", 0.001))
+    patience_counter = 0
+
     start_epoch, best_miou = 1, 0.0
     if args.resume and os.path.isfile(args.resume):
         checkpoint = torch.load(args.resume, map_location=device)
@@ -286,17 +293,26 @@ def main():
         val_metrics = validate(model, val_loader, criterion, epoch, device, config)
         
         current_miou = val_metrics["val_mIoU"]
-        is_best = current_miou > best_miou
-        if is_best: best_miou = current_miou
+        is_best = (current_miou - best_miou) > min_delta
+        if is_best:
+            best_miou = current_miou
+            patience_counter = 0
+        else:
+            patience_counter += 1
         
-        logger.info(f"Epoch {epoch}/{epochs} - Train Loss: {train_metrics['train_loss']:.4f} | Val Loss: {val_metrics['val_loss']:.4f} | Val mIoU: {current_miou:.4f}")
+        patience_str = f" (Patience: {patience_counter}/{patience})" if early_stop_enabled else ""
+        logger.info(f"Epoch {epoch}/{epochs} - Train Loss: {train_metrics['train_loss']:.4f} | Val Loss: {val_metrics['val_loss']:.4f} | Val mIoU: {current_miou:.4f} (Best: {best_miou:.4f}){patience_str}")
         if use_wandb:
-            wandb.log({**train_metrics, **val_metrics, "epoch": epoch}, step=epoch)
+            wandb.log({**train_metrics, **val_metrics, "epoch": epoch, "best_miou": best_miou}, step=epoch)
             
         checkpoint_state = {"epoch": epoch, "model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(), "mIoU": current_miou, "best_miou": best_miou, "config": config}
         save_checkpoint(checkpoint_state, is_best, save_dir, filename="last.pth")
         if epoch % config.get("logging", {}).get("save_every", 10) == 0:
             save_checkpoint(checkpoint_state, False, save_dir, filename=f"epoch_{epoch}.pth")
+
+        if early_stop_enabled and patience_counter >= patience:
+            logger.info(f"Early stopping triggered! Validation mIoU did not improve by {min_delta} for {patience} consecutive epochs. Best mIoU: {best_miou:.4f}")
+            break
 
     if use_wandb: wandb.finish()
 
