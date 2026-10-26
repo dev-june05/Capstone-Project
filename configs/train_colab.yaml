@@ -20,7 +20,7 @@ dataset:
 
 training:
   batch_size: 8         # Optimal for Google Colab T4 15-16GB VRAM
-  epochs: 100
+  epochs: 30
   optimizer: adamw
   learning_rate: 0.001
   weight_decay: 0.01
@@ -33,7 +33,7 @@ training:
   dice_weight: 0.5
   early_stopping:
     enabled: true
-    patience: 15         # Stop if validation mIoU does not improve for 15 consecutive epochs
+    patience: 10         # Stop if validation mIoU does not improve for 10 consecutive epochs
     min_delta: 0.001     # Minimum improvement required to qualify as best model
 
 augmentation:
