@@ -85,8 +85,12 @@ def build_eval_dataloader(config: Dict[str, Any], split: str) -> DataLoader:
         elif d_cfg["name"] == "campus":
             datasets.append(CampusDataset(d_cfg["root"], d_cfg["split"], transform=val_aug))
 
+    datasets = [d for d in datasets if len(d) > 0]
+    if len(datasets) == 0:
+        raise RuntimeError(f"No evaluation images found for split '{split}'. Please check dataset paths.")
+
     ds = CombinedDataset(datasets) if len(datasets) > 1 else datasets[0]
-    return DataLoader(ds, batch_size=config["training"]["batch_size"], shuffle=False, num_workers=config["dataset"].get("num_workers", 4))
+    return DataLoader(ds, batch_size=config["training"]["batch_size"], shuffle=False, num_workers=config["dataset"].get("num_workers", 2))
 
 def print_results_table(metrics: Dict[str, Any]) -> None:
     border = "=" * 65
