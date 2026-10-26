@@ -3,6 +3,7 @@ import argparse
 import logging
 import os
 import random
+import shutil
 import sys
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -239,6 +240,18 @@ def save_checkpoint(state, is_best, save_dir, filename="last.pth"):
     torch.save(state, target_file)
     if is_best:
         torch.save(state, save_path / "best.pth")
+
+    # If running in Google Colab with Drive mounted, automatically mirror to Drive every epoch
+    gdrive_mount = Path("/content/drive/MyDrive")
+    if gdrive_mount.exists():
+        try:
+            colab_backup = gdrive_mount / "capstone_checkpoints"
+            colab_backup.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(target_file, colab_backup / filename)
+            if is_best:
+                shutil.copy2(save_path / "best.pth", colab_backup / "best.pth")
+        except Exception as e:
+            logger.warning(f"Failed to auto-backup checkpoint to Google Drive: {e}")
 
 def main():
     args = parse_args()
