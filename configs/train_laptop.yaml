@@ -1,0 +1,56 @@
+# BiSeNetV2 Training Configuration — LOCAL LAPTOP (RTX 3050, 4GB VRAM, SSD)
+# Tuned to keep GPU/CPU/disk stress minimal while still converging well.
+
+model:
+  name: bisenetv2
+  num_classes: 4
+  input_height: 512
+  input_width: 1024
+  auxiliary_loss: true
+  aux_weights: [1.0, 1.0, 1.0, 1.0]
+
+dataset:
+  train:
+    - name: cityscapes
+      root: C:/Dataset/cityscapes        # SSD path — fast I/O, no HDD stress
+      split: train
+  val:
+    - name: cityscapes
+      root: C:/Dataset/cityscapes
+      split: val
+  num_workers: 2          # 2 workers keeps CPU cool on a laptop
+
+training:
+  batch_size: 2           # 2 fits comfortably in 4GB VRAM with headroom to spare
+  epochs: 30
+  optimizer: adamw
+  learning_rate: 0.001
+  weight_decay: 0.01      # L2 regularization built into AdamW
+  lr_schedule: poly
+  poly_power: 0.9
+  warmup_epochs: 3        # Gentle 3-epoch warmup
+  class_weights: auto
+  loss: ohem_ce_dice
+  ohem_threshold: 0.7
+  dice_weight: 0.5
+  early_stopping:
+    enabled: true
+    patience: 10           # Stop if no improvement for 10 epochs
+    min_delta: 0.001
+
+augmentation:
+  random_crop: [512, 1024]
+  horizontal_flip: 0.5
+  color_jitter: [0.3, 0.3, 0.3, 0.1]
+  gaussian_blur: 0.1
+  brightness_contrast: [0.3, 0.3]
+  random_shadow: 0.3
+
+logging:
+  save_dir: C:/Dataset/checkpoints       # Save checkpoints on SSD too
+  save_every: 1                           # Save after EVERY epoch
+  log_images_every: 5
+
+reproducibility:
+  seed: 42
+  deterministic: true

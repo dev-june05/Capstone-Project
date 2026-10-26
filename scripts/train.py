@@ -282,11 +282,16 @@ def main():
 
     start_epoch, best_miou = 1, 0.0
     if args.resume and os.path.isfile(args.resume):
+        logger.info(f"Resuming from checkpoint: {args.resume}")
         checkpoint = torch.load(args.resume, map_location=device)
         model.load_state_dict(checkpoint["model_state_dict"])
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        if "scheduler_state_dict" in checkpoint:
+            scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
         start_epoch = checkpoint["epoch"] + 1
         best_miou = checkpoint.get("best_miou", 0.0)
+        patience_counter = checkpoint.get("patience_counter", 0)
+        logger.info(f"Resumed at epoch {start_epoch}, best mIoU so far: {best_miou:.4f}")
 
     for epoch in range(start_epoch, epochs + 1):
         train_metrics = train_one_epoch(model, train_loader, criterion, optimizer, scheduler, epoch, device, config)
@@ -305,7 +310,7 @@ def main():
         if use_wandb:
             wandb.log({**train_metrics, **val_metrics, "epoch": epoch, "best_miou": best_miou}, step=epoch)
             
-        checkpoint_state = {"epoch": epoch, "model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(), "mIoU": current_miou, "best_miou": best_miou, "config": config}
+        checkpoint_state = {"epoch": epoch, "model_state_dict": model.state_dict(), "optimizer_state_dict": optimizer.state_dict(), "scheduler_state_dict": scheduler.state_dict(), "mIoU": current_miou, "best_miou": best_miou, "patience_counter": patience_counter, "config": config}
         save_checkpoint(checkpoint_state, is_best, save_dir, filename="last.pth")
         if epoch % config.get("logging", {}).get("save_every", 10) == 0:
             save_checkpoint(checkpoint_state, False, save_dir, filename=f"epoch_{epoch}.pth")
