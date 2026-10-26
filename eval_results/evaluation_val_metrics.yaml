@@ -1,0 +1,17 @@
+mIoU: 0.6640754877583748
+per_class_iou:
+  Walkable: 0.9491853340660918
+  Non-walkable: 0.8846579223702841
+  Dynamic Obstacle: 0.7015316885184195
+  Structural Obstacle: 0.12092700607870364
+per_class_dice:
+  Walkable: 0.9739303056277843
+  Non-walkable: 0.9387994626183126
+  Dynamic Obstacle: 0.8245884496330087
+  Structural Obstacle: 0.21576249911533132
+obstacle_recall:
+  dynamic_obstacle_recall: 0.8359338673652866
+  structural_obstacle_recall: 0.1342951396656265
+  combined_obstacle_recall: 0.698626282209445
+missed_obstacle_rate_wz: 0.09863746900013941
+boundary_f1: 0.0
