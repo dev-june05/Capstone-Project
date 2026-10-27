@@ -1,17 +1,17 @@
-mIoU: 0.6640754877583748
+mIoU: 0.6937570094114522
 per_class_iou:
-  Walkable: 0.9491853340660918
-  Non-walkable: 0.8846579223702841
-  Dynamic Obstacle: 0.7015316885184195
-  Structural Obstacle: 0.12092700607870364
+  Walkable: 0.9495304100600187
+  Non-walkable: 0.8952505462932202
+  Dynamic Obstacle: 0.7289160714739503
+  Structural Obstacle: 0.20133100981861965
 per_class_dice:
-  Walkable: 0.9739303056277843
-  Non-walkable: 0.9387994626183126
-  Dynamic Obstacle: 0.8245884496330087
-  Structural Obstacle: 0.21576249911533132
+  Walkable: 0.9741119247591385
+  Non-walkable: 0.9447305508437122
+  Dynamic Obstacle: 0.8432058484510802
+  Structural Obstacle: 0.3351799099051263
 obstacle_recall:
-  dynamic_obstacle_recall: 0.8359338673652866
-  structural_obstacle_recall: 0.1342951396656265
-  combined_obstacle_recall: 0.698626282209445
-missed_obstacle_rate_wz: 0.09863746900013941
+  dynamic_obstacle_recall: 0.8917508958289638
+  structural_obstacle_recall: 0.21751691769481635
+  combined_obstacle_recall: 0.7598062985415054
+missed_obstacle_rate_wz: 0.09474211385919652
 boundary_f1: 0.0
