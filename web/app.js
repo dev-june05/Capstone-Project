@@ -70,11 +70,70 @@ overlayCanvas.width = INPUT_WIDTH;
 overlayCanvas.height = INPUT_HEIGHT;
 overlayCanvas.style.opacity = currentAlpha;
 
-// Offscreen canvas for pre-processing
-const offscreenCanvas = document.createElement('canvas');
-offscreenCanvas.width = INPUT_WIDTH;
-offscreenCanvas.height = INPUT_HEIGHT;
-const offscreenCtx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
+// Audio System State
+let audioCtx = null;
+const spokenText = document.getElementById('spokenText');
+
+function unlockAudio() {
+  try {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    if (window.speechSynthesis) {
+      window.speechSynthesis.resume();
+    }
+  } catch (e) {
+    console.warn('Audio unlock:', e);
+  }
+}
+window.addEventListener('click', unlockAudio);
+window.addEventListener('keydown', unlockAudio);
+window.addEventListener('touchstart', unlockAudio);
+
+function playChime(type) {
+  try {
+    unlockAudio();
+    if (!audioCtx) return;
+
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    if (type === 'warning') {
+      // Urgent acoustic warning double-beep (880Hz then 660Hz)
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.setValueAtTime(660, now + 0.1);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+      osc.start(now);
+      osc.stop(now + 0.22);
+    } else {
+      // Pleasant clear chime (523Hz -> 659Hz)
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.12);
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      osc.start(now);
+      osc.stop(now + 0.3);
+    }
+  } catch (e) {
+    // Web Audio blocked or unsupported
+  }
+}
+
+// Pre-load speech synthesis voices
+if (typeof window !== 'undefined' && window.speechSynthesis) {
+  window.speechSynthesis.onvoiceschanged = () => {
+    window.speechSynthesis.getVoices();
+  };
+}
 
 // --- 1. Model Loading ---
 async function initModel() {
@@ -177,6 +236,9 @@ function renderSegmentation(outputData) {
   const counts = [0, 0, 0, 0];
   let walkingZoneObstaclePixels = 0;
   let totalWalkingZonePixels = 0;
+  let leftObstacles = 0;
+  let centerObstacles = 0;
+  let rightObstacles = 0;
 
   for (let i = 0; i < planeSize; i++) {
     // 4 channel logits for pixel i
@@ -196,10 +258,18 @@ function renderSegmentation(outputData) {
 
     // Check if pixel falls in the bottom 40% walking zone
     const y = Math.floor(i / INPUT_WIDTH);
+    const x = i % INPUT_WIDTH;
     if (y >= WALKING_ZONE_Y_START) {
       totalWalkingZonePixels++;
       if (cls === 2 || cls === 3) {
         walkingZoneObstaclePixels++;
+        if (x < INPUT_WIDTH * 0.35) {
+          leftObstacles++;
+        } else if (x > INPUT_WIDTH * 0.65) {
+          rightObstacles++;
+        } else {
+          centerObstacles++;
+        }
       }
     }
 
@@ -231,54 +301,94 @@ function renderSegmentation(outputData) {
   barDynamic.style.width = `${p2}%`;
   barStructural.style.width = `${p3}%`;
 
+  // Determine obstacle direction
+  let direction = 'ahead';
+  if (centerObstacles >= leftObstacles && centerObstacles >= rightObstacles) {
+    direction = 'ahead';
+  } else if (leftObstacles > rightObstacles) {
+    direction = 'left';
+  } else {
+    direction = 'right';
+  }
+
   // Evaluate Walking Zone Safety
   const obstacleRatio = walkingZoneObstaclePixels / Math.max(1, totalWalkingZonePixels);
-  evaluateSafetyAlert(obstacleRatio);
+  evaluateSafetyAlert(obstacleRatio, direction);
 }
 
 // --- 5. Safety Alert & TTS Voice Alerts ---
-function evaluateSafetyAlert(obstacleRatio) {
+function evaluateSafetyAlert(obstacleRatio, direction = 'ahead') {
   // Threshold: if > 1.8% of walking zone is an obstacle
   const isHazard = obstacleRatio > 0.018;
 
   if (isHazard) {
+    const dirLabel = direction === 'left' ? 'on the left' : (direction === 'right' ? 'on the right' : 'directly ahead');
     safetyAlertBanner.className = 'mt-2 p-3 rounded-xl border flex items-center gap-3 transition-colors bg-red-500/15 border-red-500/40 text-red-300 animate-pulse';
     safetyAlertIcon.innerText = '⚠️';
-    safetyAlertTitle.innerText = 'Hazard Detected!';
-    safetyAlertDesc.innerText = `Obstacle detected directly in the walking zone (${(obstacleRatio * 100).toFixed(1)}% area).`;
-    triggerVoiceAlert('warning');
+    safetyAlertTitle.innerText = `Hazard Detected (${direction.toUpperCase()})!`;
+    safetyAlertDesc.innerText = `Obstacle detected ${dirLabel} in walking zone (${(obstacleRatio * 100).toFixed(1)}% area).`;
+    triggerVoiceAlert('warning', direction);
   } else {
     safetyAlertBanner.className = 'mt-2 p-3 rounded-xl border flex items-center gap-3 transition-colors bg-emerald-500/10 border-emerald-500/30 text-emerald-300';
     safetyAlertIcon.innerText = '🟢';
     safetyAlertTitle.innerText = 'Path Clear';
     safetyAlertDesc.innerText = 'Immediate walking path is safe to navigate.';
-    triggerVoiceAlert('clear');
+    triggerVoiceAlert('clear', 'ahead');
   }
 }
 
-function triggerVoiceAlert(type) {
-  if (!voiceEnabled || !window.speechSynthesis) return;
+function triggerVoiceAlert(type, direction = 'ahead') {
+  if (!voiceEnabled) return;
 
   const now = Date.now();
-  // Don't repeat speech within 3.5 seconds unless state changed from clear -> warning
-  if (now - lastSpokenTime < 3500 && lastAlertState === type) return;
+  const alertKey = `${type}_${direction}`;
+  if (now - lastSpokenTime < 3200 && lastAlertState === alertKey) return;
 
   lastSpokenTime = now;
-  lastAlertState = type;
+  lastAlertState = alertKey;
 
-  window.speechSynthesis.cancel(); // Clear pending utterances
+  // Play instant acoustic chime (high-tech sonar beep for hazards, gentle chime for clear)
+  playChime(type);
 
   let message = '';
-  if (voiceLanguage === 'hi') {
-    message = type === 'warning' ? 'सावधान! आगे बाधा है।' : 'रास्ता साफ़ है।';
+  if (type === 'warning') {
+    if (voiceLanguage === 'hi') {
+      if (direction === 'left') message = 'सावधान! बाईं तरफ बाधा है।';
+      else if (direction === 'right') message = 'सावधान! दाईं तरफ बाधा है।';
+      else message = 'सावधान! सीधे सामने बाधा है। रुकिए!';
+    } else {
+      if (direction === 'left') message = 'Caution! Obstacle on your left.';
+      else if (direction === 'right') message = 'Caution! Obstacle on your right.';
+      else message = 'Warning! Obstacle directly ahead.';
+    }
   } else {
-    message = type === 'warning' ? 'Warning! Obstacle detected ahead.' : 'Path clear.';
+    message = voiceLanguage === 'hi' ? 'रास्ता साफ़ है, आगे बढ़ें।' : 'Path clear. Safe to walk.';
   }
 
-  const utterance = new SpeechSynthesisUtterance(message);
-  utterance.lang = voiceLanguage === 'hi' ? 'hi-IN' : 'en-US';
-  utterance.rate = 1.05;
-  window.speechSynthesis.speak(utterance);
+  // Update live transcription banner
+  if (spokenText) {
+    spokenText.innerText = `"${message}"`;
+  }
+
+  // Speak via SpeechSynthesis API
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.resume();
+
+    const utterance = new SpeechSynthesisUtterance(message);
+    utterance.lang = voiceLanguage === 'hi' ? 'hi-IN' : 'en-US';
+    utterance.rate = 1.05;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+
+    const voices = window.speechSynthesis.getVoices();
+    if (voices && voices.length > 0) {
+      const match = voices.find(v => (voiceLanguage === 'hi' ? v.lang.startsWith('hi') : v.lang.startsWith('en')));
+      if (match) utterance.voice = match;
+    }
+
+    window.speechSynthesis.speak(utterance);
+  }
 }
 
 // --- 6. User Actions: Samples & Uploads ---
@@ -405,9 +515,10 @@ voiceLang.addEventListener('change', (e) => {
 });
 
 function testSpeech() {
+  unlockAudio();
   lastSpokenTime = 0;
   lastAlertState = null;
-  triggerVoiceAlert('warning');
+  triggerVoiceAlert('warning', 'ahead');
 }
 
 // Start Initialization
