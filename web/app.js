@@ -83,22 +83,15 @@ async function initModel() {
     
     // Configure ONNX Runtime Web
     ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/';
-    ort.env.wasm.numThreads = Math.min(4, navigator.hardwareConcurrency || 2);
+    const hasSharedArrayBuffer = typeof SharedArrayBuffer !== 'undefined';
+    ort.env.wasm.numThreads = hasSharedArrayBuffer ? Math.min(4, navigator.hardwareConcurrency || 2) : 1;
     ort.env.wasm.simd = true;
 
-    // Create session (tries WebGL for GPU acceleration, falls back to WASM)
-    let providerUsed = 'webgl';
-    try {
-      session = await ort.InferenceSession.create(MODEL_PATH, {
-        executionProviders: ['webgl']
-      });
-    } catch (gpuErr) {
-      console.warn('WebGL provider unavailable or failed, falling back to WASM:', gpuErr);
-      providerUsed = 'wasm';
-      session = await ort.InferenceSession.create(MODEL_PATH, {
-        executionProviders: ['wasm']
-      });
-    }
+    // Use WebAssembly (WASM) execution provider for full ONNX Opset 16 operator compatibility
+    // (WebGL EP lacks support for bilinear Resize layers present in segmentation networks)
+    session = await ort.InferenceSession.create(MODEL_PATH, {
+      executionProviders: ['wasm']
+    });
 
     isModelReady = true;
     statusBadge.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/30';
@@ -106,11 +99,11 @@ async function initModel() {
       <span class="relative flex h-2 w-2">
         <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
       </span>
-      <span>Model Ready (${providerUsed.toUpperCase()})</span>
+      <span>Model Ready (WASM SIMD)</span>
     `;
 
-    console.log(`✅ BiSeNetV2 ONNX model loaded successfully (${providerUsed}).`);
-    // Load first sample automatically once model is ready
+    console.log('✅ BiSeNetV2 ONNX model loaded successfully with WASM engine.');
+    // Automatically trigger initial sample inference
     loadSample(1);
   } catch (err) {
     console.error('Failed to load ONNX model:', err);
@@ -153,8 +146,13 @@ async function runInference(imageSource) {
 
   try {
     const inputTensor = preprocess(imageSource);
-    const results = await session.run({ input: inputTensor });
-    const outputData = results.output.data; // [1, 4, 512, 1024]
+    const inputName = session.inputNames ? session.inputNames[0] : 'input';
+    const feeds = {};
+    feeds[inputName] = inputTensor;
+
+    const results = await session.run(feeds);
+    const outputName = session.outputNames ? session.outputNames[0] : 'output';
+    const outputData = results[outputName].data; // [1, 4, 512, 1024]
 
     const latency = Math.round(performance.now() - startTime);
     metricLatency.innerText = `${latency} ms`;
@@ -163,6 +161,10 @@ async function runInference(imageSource) {
     renderSegmentation(outputData);
   } catch (err) {
     console.error('Inference error:', err);
+    metricLatency.innerText = 'Error';
+    metricFps.innerText = '0 FPS';
+    statusBadge.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-red-500/10 text-red-300 border border-red-500/30';
+    statusText.innerText = 'Inference Error: ' + err.message;
   }
 }
 
@@ -172,7 +174,6 @@ function renderSegmentation(outputData) {
   const overlayData = overlayCtx.createImageData(INPUT_WIDTH, INPUT_HEIGHT);
   const data = overlayData.data;
 
-  const alphaInt = 255; // Full opacity in buffer; overlayCanvas.style.opacity controls visual blending
   const counts = [0, 0, 0, 0];
   let walkingZoneObstaclePixels = 0;
   let totalWalkingZonePixels = 0;
@@ -207,7 +208,8 @@ function renderSegmentation(outputData) {
     data[idx] = rgb[0];
     data[idx + 1] = rgb[1];
     data[idx + 2] = rgb[2];
-    data[idx + 3] = alphaInt;
+    // Background is semi-transparent; Walkable and Obstacles are vivid
+    data[idx + 3] = (cls === 1) ? 60 : 230;
   }
 
   overlayCtx.putImageData(overlayData, 0, 0);
