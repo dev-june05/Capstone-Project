@@ -70,6 +70,12 @@ overlayCanvas.width = INPUT_WIDTH;
 overlayCanvas.height = INPUT_HEIGHT;
 overlayCanvas.style.opacity = currentAlpha;
 
+// Offscreen canvas for pre-processing
+const offscreenCanvas = document.createElement('canvas');
+offscreenCanvas.width = INPUT_WIDTH;
+offscreenCanvas.height = INPUT_HEIGHT;
+const offscreenCtx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
+
 // Audio System State
 let audioCtx = null;
 const spokenText = document.getElementById('spokenText');
@@ -158,7 +164,7 @@ async function initModel() {
       <span class="relative flex h-2 w-2">
         <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
       </span>
-      <span>Model Ready (WASM SIMD)</span>
+      <span id="statusText">Model Ready (WASM SIMD)</span>
     `;
 
     console.log('✅ BiSeNetV2 ONNX model loaded successfully with WASM engine.');
@@ -167,7 +173,8 @@ async function initModel() {
   } catch (err) {
     console.error('Failed to load ONNX model:', err);
     statusBadge.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-red-500/10 text-red-300 border border-red-500/30';
-    statusText.innerText = 'Model Load Failed';
+    const st = document.getElementById('statusText');
+    if (st) st.innerText = 'Model Load Failed';
   }
 }
 
@@ -223,7 +230,11 @@ async function runInference(imageSource) {
     metricLatency.innerText = 'Error';
     metricFps.innerText = '0 FPS';
     statusBadge.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-red-500/10 text-red-300 border border-red-500/30';
-    statusText.innerText = 'Inference Error: ' + err.message;
+    const st = document.getElementById('statusText');
+    if (st) st.innerText = 'Inference Error: ' + err.message;
+    if (safetyAlertTitle) safetyAlertTitle.innerText = 'Inference Error';
+    if (safetyAlertDesc) safetyAlertDesc.innerText = err.message || String(err);
+    if (spokenText) spokenText.innerText = `Error: ${err.message || String(err)}`;
   }
 }
 
@@ -397,12 +408,15 @@ function loadSample(num) {
   spinner.classList.remove('hidden');
 
   const img = new Image();
-  img.crossOrigin = 'anonymous';
   img.onload = () => {
     baseCtx.drawImage(img, 0, 0, INPUT_WIDTH, INPUT_HEIGHT);
     runInference(img).finally(() => {
       spinner.classList.add('hidden');
     });
+  };
+  img.onerror = (e) => {
+    spinner.classList.add('hidden');
+    console.error('Failed to load sample image:', e);
   };
   img.src = `samples/sample${num}.jpg`;
 }
