@@ -9,6 +9,7 @@ checkpoints/
 *.pt
 *.pth
 *.onnx
+!web/model.onnx
 *.engine
 *.trt
 
