@@ -1,0 +1,19 @@
+# Ignore heavy model checkpoints and python training dependencies on Vercel
+checkpoints/
+data/
+*.pth
+*.pt
+requirements*.txt
+models/
+scripts/
+utils/
+configs/
+eval_results/
+notebooks/
+docs/
+analysis/
+audio/
+jetson/
+*.PDF
+*.pdf
+model.onnx

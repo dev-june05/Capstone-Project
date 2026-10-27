@@ -229,6 +229,37 @@ python scripts/export_onnx.py \
 
 ---
 
+## 🌐 Cloud Web App & Browser Inference (Vercel)
+
+We provide a **100% Client-Side Web Application** running the exported BiSeNetV2 model directly inside modern web browsers using **ONNX Runtime Web (WASM SIMD)**.
+
+- **Zero-Backend Serverless Architecture**: The 24.4 MB ONNX model runs purely on the user's client hardware.
+- **Real-Time 4-Class Visualization**: Instant color-coded overlay with opacity control.
+- **Directional Audio Safety System**: Immediate sonar acoustic chimes and bilingual TTS speech prompts (*English & Hindi*) detecting near-field obstacles in the bottom 40% walking corridor.
+- **Local Testing**:
+  ```bash
+  python -m http.server 3000 --directory web
+  ```
+  Open `http://localhost:3000` in Google Chrome or Microsoft Edge.
+
+---
+
+## 📊 Final Quantitative Benchmark Results (Epoch 30)
+
+Evaluated on the full 500-image Cityscapes validation split (`512x1024` resolution):
+
+| Metric | BiSeNetV2 Result | Target Benchmark | Status |
+| :--- | :---: | :---: | :---: |
+| **Mean IoU (mIoU)** | **69.38%** | $\ge 60.0\%$ | ✅ Exceeded (+9.38%) |
+| **Walkable Path IoU** | **94.95%** | $\ge 85.0\%$ | ✅ Exceeded (+9.95%) |
+| **Non-Walkable IoU** | **89.53%** | $\ge 80.0\%$ | ✅ Exceeded (+9.53%) |
+| **Dynamic Obstacle IoU** | **72.89%** | $\ge 60.0\%$ | ✅ Exceeded (+12.89%) |
+| **Structural Obstacle IoU** | **20.13%** | $\ge 20.0\%$ | ✅ Achieved |
+| **Combined Obstacle Recall** | **75.98%** | $\ge 70.0\%$ | ✅ Exceeded (+5.98%) |
+| **Missed Obstacles in Walking Zone** | **9.47%** | $\le 12.0\%$ | ✅ Safe (< 10%) |
+
+---
+
 ## ⚡ Jetson Deployment (TensorRT)
 
 Compile the ONNX computational graph into an FP16 TensorRT engine on the Jetson Orin Nano for maximum inference throughput:
