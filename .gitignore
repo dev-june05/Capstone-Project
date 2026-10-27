@@ -5,10 +5,15 @@ data/campus/raw/
 data/campus/annotated/
 
 # ===== Model Artifacts =====
-checkpoints/
+checkpoints/*
+!checkpoints/best.pth
+!checkpoints/last.pth
 *.pt
 *.pth
+!checkpoints/best.pth
+!checkpoints/last.pth
 *.onnx
+!model.onnx
 !web/model.onnx
 *.engine
 *.trt
